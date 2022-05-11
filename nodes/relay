@@ -73,7 +73,7 @@ class Handler(BaseHTTPRequestHandler):
         """
         if rospy.is_shutdown():
             pass
-        rospy.logerr(("Request [%i] error: " + format) % tuple([self._req_num] + list(*args)))
+        rospy.logerr(("Request [%i] error: " + format) % ((self._req_num,) + args))
 
     def log_socket_error(self, e):
         """
@@ -96,7 +96,7 @@ class Handler(BaseHTTPRequestHandler):
         """
         if rospy.is_shutdown():
             pass
-        rospy.loginfo(("Request [%i]: " + format) % tuple([self._req_num] + list(*args)))
+        rospy.loginfo(("Request [%i]: " + format) % ((self._req_num,) + args))
 
     def log_response(self, format, *args):
         """
@@ -106,7 +106,7 @@ class Handler(BaseHTTPRequestHandler):
         """
         if rospy.is_shutdown():
             pass
-        rospy.loginfo(("Response [%i]: " + format) % tuple([self._req_num] + list(*args)))
+        rospy.loginfo(("Response [%i]: " + format) % ((self._req_num,) + args))
 
     def do_GET(self):
         """
@@ -119,13 +119,13 @@ class Handler(BaseHTTPRequestHandler):
 
             # Forward the request with the same headers
             headers = dict(zip(self.headers.keys(), self.headers.values()))
-            self.log_message("GET http://%s:%i%s", (Handler.host, Handler.port, self.path))
+            self.log_message("GET http://%s:%i%s", Handler.host, Handler.port, self.path)
             conn.request("GET", self.path, headers=headers)
 
             # Obtain the response
             resp = conn.getresponse()
             self.send_response(resp.status)
-            self.log_response("%i %s", (resp.status, resp.reason))
+            self.log_response("%i %s", resp.status, resp.reason)
 
             # Forward back the response headers
             for header, value in resp.getheaders():
@@ -137,7 +137,7 @@ class Handler(BaseHTTPRequestHandler):
             while not rospy.is_shutdown():
                 chunk = resp.read(Handler.read_buffer_size)
                 if not chunk:
-                    self.log_response("finished", ())
+                    self.log_response("finished")
                     break
                 self.wfile.write(chunk)
                 num_bytes += Handler.read_buffer_size
