@@ -76,8 +76,7 @@ try:
                     return self._file.read(amt)
                 assert self._line_left
                 if amt is None or amt > self._line_left:
-                    s = self._line[self._line_offset:]
-                    s = s.encode()
+                    s = self._line[self._line_offset:].encode()
                     self._done()
                     if amt is None:
                         return s + self._file.read()
@@ -87,7 +86,7 @@ try:
                     assert amt <= self._line_left
                     i = self._line_offset
                     j = i + amt
-                    s = self._line[i:j]
+                    s = self._line[i:j].encode()
                     self._line_offset = j
                     self._line_left -= amt
                     if self._line_left == 0:
@@ -96,17 +95,17 @@ try:
 
             def readline(self, size=None):
                 if self._line_consumed:
-                    return self._file.readline(limit=size).encode()
+                    return self._file.readline(limit=size)
                 assert self._line_left
-                s = self._line[self._line_offset:]
+                s = self._line[self._line_offset:].encode()
                 self._done()
-                return s.encode()
+                return s
 
             def readlines(self, size=None):
                 if self._line_consumed:
                     return self._file.readlines(size)
                 assert self._line_left
-                L = [self._line[self._line_offset:]]
+                L = [self._line[self._line_offset:].encode()]
                 self._done()
                 if size is None:
                     return L + self._file.readlines()
@@ -297,8 +296,8 @@ class Handler(BaseHTTPRequestHandler):
                     rospy.logdebug_throttle(1.0, "Response body [%i]: Sent %i bytes." % (self._req_num, num_bytes))
         except socket.error as e:
             self.log_socket_error(e)
-        except Exception as e:
-            self.log_error("%s", str(e))
+        #except Exception as e:
+        #    self.log_error("%s", str(e))
 
 
 class Thread(threading.Thread):
