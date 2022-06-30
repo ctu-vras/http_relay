@@ -25,7 +25,158 @@ import rospy
 
 try:
     from http.server import HTTPServer, BaseHTTPRequestHandler
-    from http.client import HTTPConnection
+    from http.client import *
+
+    # Code borrowed and modified from Python 2 source code available under the Python Software Foundation License.
+    if sys.version_info[0] > 2:
+        import email.parser
+        import http
+
+        _MAXLINE = 65535
+
+
+        class LineAndFileWrapper:
+            """A limited file-like object for HTTP/0.9 responses."""
+
+            # The status-line parsing code calls readline(), which normally
+            # get the HTTP status line.  For a 0.9 response, however, this is
+            # actually the first line of the body!  Clients need to get a
+            # readable file object that contains that line.
+
+            def __init__(self, line, file):
+                self._line = line
+                self._file = file
+                self._line_consumed = 0
+                self._line_offset = 0
+                self._line_left = len(line)
+
+            def __getattr__(self, attr):
+                return getattr(self._file, attr)
+
+            def _done(self):
+                # called when the last byte is read from the line.  After the
+                # call, all read methods are delegated to the underlying file
+                # object.
+                self._line_consumed = 1
+                self.read = self._file.read
+                self.readline = self._file.readline
+                self.readlines = self._file.readlines
+
+            def readinto(self, b):
+                # This method is required for `io` module compatibility.
+                temp = self.read(len(b))
+                if len(temp) == 0:
+                    return 0
+                else:
+                    b[: len(temp)] = temp
+                    return len(temp)
+
+            def read(self, amt=None):
+                if self._line_consumed:
+                    return self._file.read(amt)
+                assert self._line_left
+                if amt is None or amt > self._line_left:
+                    s = self._line[self._line_offset:].encode()
+                    self._done()
+                    if amt is None:
+                        return s + self._file.read()
+                    else:
+                        return s + self._file.read(amt - len(s))
+                else:
+                    assert amt <= self._line_left
+                    i = self._line_offset
+                    j = i + amt
+                    s = self._line[i:j].encode()
+                    self._line_offset = j
+                    self._line_left -= amt
+                    if self._line_left == 0:
+                        self._done()
+                    return s
+
+            def readline(self, size=None):
+                if self._line_consumed:
+                    return self._file.readline(limit=size)
+                assert self._line_left
+                s = self._line[self._line_offset:].encode()
+                self._done()
+                return s
+
+            def readlines(self, size=None):
+                if self._line_consumed:
+                    return self._file.readlines(size)
+                assert self._line_left
+                L = [self._line[self._line_offset:].encode()]
+                self._done()
+                if size is None:
+                    return L + self._file.readlines()
+                else:
+                    return L + self._file.readlines(size)
+
+
+        orig_parse_headers = http.client.parse_headers
+
+
+        def parse_headers(fp, _class=http.client.HTTPMessage):
+            hstring = b''.join([]).decode('iso-8859-1')
+            return email.parser.Parser(_class=_class).parsestr(hstring)
+
+
+        def _read_status(self):
+            # Initialize with Simple-Response defaults
+            self._is_http_0_9 = False
+            line = str(self.fp.readline(_MAXLINE + 1), "iso-8859-1")
+
+            if len(line) > _MAXLINE:
+                raise LineTooLong("header line")
+            if self.debuglevel > 0:
+                print("reply:", repr(line))
+            if not line:
+                # Presumably, the server closed the connection before
+                # sending a valid response.
+                raise BadStatusLine("No status line received - the server has closed the connection")
+            try:
+                [version, status, reason] = line.split(None, 2)
+            except ValueError:
+                try:
+                    [version, status] = line.split(None, 1)
+                    reason = ""
+                except ValueError:
+                    # empty version will cause next test to fail and status
+                    # will be treated as 0.9 response.
+                    version = ""
+            if not version.startswith('HTTP/'):
+                if hasattr(self, "strict") and self.strict:
+                    self.close()
+                    raise BadStatusLine(line)
+                else:
+                    # assume it's a Simple-Response from an 0.9 server
+                    self.fp = LineAndFileWrapper(line, self.fp)
+                    self._is_http_0_9 = True
+                    http.client.parse_headers = parse_headers
+                    return "HTTP/0.9", 200, ""
+
+            # The status code is a three-digit number
+            try:
+                status = int(status)
+                if status < 100 or status > 999:
+                    raise BadStatusLine(line)
+            except ValueError:
+                raise BadStatusLine(line)
+            return version, status, reason
+
+
+        HTTPResponse._read_status = _read_status
+
+        orig_begin = HTTPResponse.begin
+
+
+        def begin(self):
+            orig_begin(self)
+            if self._is_http_0_9:
+                http.client.parse_headers = orig_parse_headers
+
+
+        HTTPResponse.begin = begin
 except ImportError:
     from SimpleHTTPServer import HTTPServer, BaseHTTPRequestHandler
     from httplib import HTTPConnection
@@ -145,8 +296,8 @@ class Handler(BaseHTTPRequestHandler):
                     rospy.logdebug_throttle(1.0, "Response body [%i]: Sent %i bytes." % (self._req_num, num_bytes))
         except socket.error as e:
             self.log_socket_error(e)
-        except Exception as e:
-            self.log_error("%s", str(e))
+        #except Exception as e:
+        #    self.log_error("%s", str(e))
 
 
 class Thread(threading.Thread):
