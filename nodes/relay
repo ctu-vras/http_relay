@@ -14,6 +14,10 @@ ROS parameters:
 - ~sigkill_timeout (default: 0 seconds): If nonzero, the node will be sigkilled in this number of seconds to prevent
                                          being stuck on a hanged connection. Use in conjunction with "respawn"
                                          roslaunch flag.
+- ~sigkill_on_stream_stop (default: False): If True, `sigkill_timeout` will not be counted when no requests are active,
+                                            and during requests, each successful data transmission will reset the
+                                            timeout. This can be used to detect stale streams if you expect an
+                                            application to be constantly receiving data.
 
 SPDX-License-Identifier: BSD-3-Clause
 SPDX-FileCopyrightText: Czech Technical University in Prague
@@ -188,6 +192,9 @@ except ImportError:
     from httplib import HTTPConnection
 
 request_num = 0
+total_bytes = 0
+num_open_requests = 0
+lock = threading.Lock()
 
 
 class HTTP10Connection(HTTPConnection):
@@ -269,6 +276,10 @@ class Handler(BaseHTTPRequestHandler):
         """
         Do the relaying work.
         """
+        global lock
+        global num_open_requests
+        with lock:
+            num_open_requests += 1
         try:
             # Choose the right HTTP version
             connection_class = HTTP11Connection if self.protocol_version == "HTTP/1.1" else HTTP10Connection
@@ -291,6 +302,7 @@ class Handler(BaseHTTPRequestHandler):
 
             # Forward back the response body
             num_bytes = 0
+            global total_bytes
             while not rospy.is_shutdown():
                 chunk = resp.read(Handler.read_buffer_size)
                 if not chunk:
@@ -298,12 +310,16 @@ class Handler(BaseHTTPRequestHandler):
                     break
                 self.wfile.write(chunk)
                 num_bytes += Handler.read_buffer_size
+                total_bytes += Handler.read_buffer_size
                 if num_bytes > 10 * Handler.read_buffer_size:
                     rospy.logdebug_throttle(1.0, "Response body [%i]: Sent %i bytes." % (self._req_num, num_bytes))
         except socket.error as e:
             self.log_socket_error(e)
         #except Exception as e:
         #    self.log_error("%s", str(e))
+        finally:
+            with lock:
+                num_open_requests -= 1
 
 
 class Thread(threading.Thread):
@@ -389,12 +405,26 @@ def run(relay_port, remote_host, remote_port, num_threads, buffer_size):
         sys.exit(1)
 
 
-def sigkill_after(timeout):
-    for _ in range(timeout):
-        if rospy.is_shutdown():
-            return
+def sigkill_after(timeout, check_streaming=False):
+    global total_bytes
+    global num_open_requests
+    remaining = timeout
+    last_total_bytes = -1
+    while not rospy.is_shutdown():
+        if not check_streaming or (num_open_requests > 0 and total_bytes == last_total_bytes):
+            remaining -= 1
+            if remaining <= 0:
+                rospy.logerr("Restarting stale HTTP stream!")
+                time.sleep(0.01)
+                os.kill(os.getpid(), signal.SIGKILL)
+                return
+        else:
+            remaining = timeout
+        if check_streaming and remaining == timeout // 2:
+            rospy.logwarn("HTTP stream stopped. It will be reset in %i sec if it does not start working again." % (
+                timeout // 2,))
+        last_total_bytes = total_bytes
         time.sleep(1)
-    os.kill(os.getpid(), signal.SIGKILL)
 
 
 def main():
@@ -408,6 +438,10 @@ def main():
     sigkill_timeout = rospy.get_param("~sigkill_timeout", 0)  # If nonzero, the node will be sigkilled in this number of
                                                               # seconds to prevent being stuck on a hanged connection.
                                                               # Use in conjunction with "respawn" roslaunch flag.
+    # If True, sigkill_timeout will not be counted when no requests are active, and during requests,
+    # each successful data transmission will reset the timeout. This can be used to detect stale streams if you expect
+    # an application to be constantly receiving data.
+    sigkill_on_stream_stop = rospy.get_param("~sigkill_on_stream_stop", False)
 
     rospy.loginfo("Relaying HTTP requests from %s:%i to %s:%i using %i threads" % (
         "localhost", local_port, host, port, num_threads))
@@ -415,7 +449,7 @@ def main():
     if sigkill_timeout > 0:
         rospy.loginfo("HTTP relay has sigkill timeout set to %i seconds. After that time, the node will be killed." % (
             sigkill_timeout,))
-        t = threading.Thread(target=sigkill_after, args=(sigkill_timeout,))
+        t = threading.Thread(target=sigkill_after, args=(sigkill_timeout, sigkill_on_stream_stop))
         t.start()
 
     run(local_port, host, port, num_threads, buffer_size)
