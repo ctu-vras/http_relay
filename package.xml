@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="2">
   <name>http_relay</name>
-  <version>1.0.0</version>
+  <version>1.0.1</version>
   <description>Relay for HTTP messages (reverse proxy)</description>
 
   <author email="peckama2@fel.cvut.cz">Martin Pecka</author>

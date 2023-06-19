@@ -2,8 +2,8 @@
 Changelog for package http_relay
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.0.1 (2023-06-19)
+------------------
 * Noetic compatibility.
 * Added sigkill_on_stream_stop so that the relay is only killed if there is a stale request.
 * Added sigkill_timeout for automatic restarting of the node even if it hangs on a connection.
