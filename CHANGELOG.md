@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.0
+
+- Converted to pure Python package.
+
 ## 1.0.1
 
 - Noetic compatibility.
