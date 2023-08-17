@@ -8,7 +8,7 @@ import threading
 from http_relay import run, sigkill_after
 
 
-def main():
+def get_parser():
     parser = argparse.ArgumentParser(
         description="Relay HTTP requests from localhost to a remote host (act as reverse HTTP proxy).")
 
@@ -33,7 +33,11 @@ def main():
                              'during requests, each successful data transmission will reset the timeout. This can be '
                              'used to detect stale streams if you expect an application to be constantly receiving '
                              'data.')
+    return parser
 
+
+def main():
+    parser = get_parser()
     args = parser.parse_args()
 
     host = args.host.lstrip("[").rstrip("]")  # strip [] from IPv6 addresses
