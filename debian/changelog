@@ -1,0 +1,5 @@
+http-relay (2.0.1-1) unstable; urgency=medium
+
+  * Initial release (Closes: #nnnn)  <nnnn is the bug number of your ITP>
+
+ -- Martin Pecka <peci1@seznam.cz>  Thu, 17 Aug 2023 17:24:52 +0200

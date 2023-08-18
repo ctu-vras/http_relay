@@ -1,0 +1,16 @@
+Source: http-relay
+Section: net
+Priority: optional
+Maintainer: Martin Pecka <peci1@seznam.cz>
+Build-Depends: debhelper (>= 10), dh-python, python3-all, python3-setuptools
+Standards-Version: 4.1.2
+Homepage: https://github.com/ctu-vras/http_relay
+Vcs-Git: https://github.com/ctu-vras/http_relay-git
+Vcs-Browser: https://github.com/ctu-vras/http_relay
+
+Package: http-relay
+Architecture: all
+Depends: ${misc:Depends} ${python3:Depends}
+Description: Relay HTTP requests from local host to a remote host.
+ This HTTP relay properly processes also the nonstandard HTTP responses like `ICY 200 OK` produced by Shoutcast or NTRIP streaming servers.
+ The relay works properly with hostnames, IPv4 and IPv6 addresses. IPv6 addresses can be specified with or without `[]`.
