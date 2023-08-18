@@ -10,7 +10,8 @@ _ENV = $(strip PATH="$(DESTDIR)/usr/bin:$(PATH)" PYTHONPATH="$(DESTDIR)/usr/lib/
 # generate manpage with help2man from --help option of python script
 _mkman = $(_ENV) help2man $(if $3,--name "$(strip $3)") --no-info --version-string $(DEB_VERSION_UPSTREAM) --output $2 $1 || { $(_ENV) $1 --help; false; }
 
-execute_after_dh_auto_install:
+override_dh_auto_install:
+	dh_auto_install
 	$(call _mkman, $(CMD), debian/$(CMD).1, Relay HTTP requests from local host to a remote host.)
 
 %:

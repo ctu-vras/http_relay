@@ -1,3 +1,1 @@
 *.egg-info/*
-debian/http-relay.1
-debian/tmp
