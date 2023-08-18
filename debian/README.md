@@ -13,3 +13,7 @@ New upstream release (not tested yet):
     git merge 2.0.3
     gbp dch --snapshot --auto debian/
     gbp buildpackage --git-ignore-new
+    # check the changelog
+    gbp dch --release --auto
+    git commit -m "Release 2.0.3" debian/changelog
+    gbp buildpackage
