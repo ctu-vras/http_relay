@@ -315,7 +315,7 @@ def run(relay_addr, relay_port, remote_host, remote_port, num_threads, buffer_si
 
         # Wait for node exit
         try:
-            while True:
+            while not shutting_down:
                 time.sleep(0.1)
         except KeyboardInterrupt:
             pass
@@ -344,6 +344,11 @@ def run(relay_addr, relay_port, remote_host, remote_port, num_threads, buffer_si
     except:
         shutting_down = True
         raise
+
+
+def shutdown():
+    global shutting_down
+    shutting_down = True
 
 
 def sigkill_after(timeout, check_streaming=False):
