@@ -21,4 +21,4 @@ New upstream release (not tested yet):
     rm -rf .pytest_cache src/http_relay.egg-info
     # build source package
     debuild -S -sa
-    dput ppa:peci1/http-relay.ppa ../http-relay_2.*_source.changes
+    dput ppa:peci1/http-relay ../http-relay_2.*_source.changes
