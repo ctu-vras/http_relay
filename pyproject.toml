@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-FileCopyrightText: Czech Technical University in Prague
+
 [build-system]
 requires = ["setuptools>=39.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
