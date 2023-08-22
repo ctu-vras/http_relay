@@ -3,9 +3,7 @@
 
 name: Test
 
-on:
-  push:
-    branches: [ pip ]
+on: [workflow_call]
 
 jobs:
   build:
