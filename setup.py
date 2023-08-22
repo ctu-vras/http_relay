@@ -13,6 +13,7 @@ setup(
     python_requires='>=2.7',
     packages=["http_relay"],
     package_dir={"": "src"},
+    extras_require={"test": ['pytest']},
     entry_points={"console_scripts": ["http-relay = http_relay.__main__:main"]},
     classifiers=[
         "License :: OSI Approved :: BSD License",

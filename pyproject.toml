@@ -37,3 +37,6 @@ Homepage = "https://github.com/ctu-vras/http_relay"
 
 [project.scripts]
 http-relay = "http_relay.__main__:main"
+
+[project.optional-dependencies]
+test = ["pytest"]

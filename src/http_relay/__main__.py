@@ -36,9 +36,9 @@ def get_parser():
     return parser
 
 
-def main():
+def main(cli_args=None):
     parser = get_parser()
-    args = parser.parse_args()
+    args = parser.parse_args(cli_args)
 
     host = args.host.lstrip("[").rstrip("]")  # strip [] from IPv6 addresses
     port = args.port
