@@ -14,6 +14,8 @@ import sys
 import threading
 import time
 
+from functools import partial
+
 try:
     from http.server import HTTPServer, BaseHTTPRequestHandler
     from http.client import *
@@ -22,7 +24,7 @@ except ImportError:
     from httplib import HTTPConnection
 
 
-__all__ = ['run', 'sigkill_after']
+__all__ = ['HttpRelay']
 
 
 # Some servers (e.g. NTRIP, Shoutcast...) do respond with nonstandard status lines like "ICY 200 OK" instead of
@@ -76,13 +78,6 @@ class NonstandardHttpResponse(HTTPResponse):
         return version, status, reason
 
 
-request_num = 0
-total_bytes = 0
-num_open_requests = 0
-shutting_down = False
-lock = threading.Lock()
-
-
 class HTTP10Connection(HTTPConnection):
     _http_vsn_str = "HTTP/1.0"
     _http_vsn = 10
@@ -107,15 +102,16 @@ class Handler(BaseHTTPRequestHandler):
     The main logic of the relay - forward the HTTP request to the remote server with changed Host: header and pass back
     whatever it returns.
     """
-    host = "localhost"
-    port = 80
-    relay_port = 80
-    read_buffer_size = 1
+    def __init__(self, relay, request, client_address, server):
+        self._req_num = relay.request_num
+        relay.request_num += 1
 
-    def __init__(self, request, client_address, server):
-        global request_num
-        self._req_num = request_num
-        request_num += 1
+        self.relay = relay
+        self.host = relay.host
+        self.port = relay.port
+        self.relay_port = relay.relay_port
+        self.read_buffer_size = relay.read_buffer_size
+
         try:
             BaseHTTPRequestHandler.__init__(self, request, client_address, server)
         except socket.error as e:
@@ -131,7 +127,7 @@ class Handler(BaseHTTPRequestHandler):
         :param str format: Format string.
         :param List[Any] args: % parameters of the format string.
         """
-        if not shutting_down and is_server_running(self.server):
+        if not self.relay.shutting_down and is_server_running(self.server):
             logging.error(("Request [%i] error: " + format) % ((self._req_num,) + args))
 
     def log_socket_error(self, e):
@@ -145,7 +141,7 @@ class Handler(BaseHTTPRequestHandler):
         elif ("Errno %i" % (errno.EPIPE,)) in str(e) or ("Errno %i" % (errno.ECONNRESET,)) in str(e):
             logging.info("Response [%i]: finished" % (self._req_num,))
         else:
-            if not shutting_down and is_server_running(self.server):
+            if not self.relay.shutting_down and is_server_running(self.server):
                 self.log_error("%s", str(e))
 
     def log_message(self, format, *args):
@@ -181,31 +177,29 @@ class Handler(BaseHTTPRequestHandler):
         """
         Do the relaying work.
         """
-        global lock
-        global num_open_requests
-        with lock:
-            num_open_requests += 1
+        with self.relay.lock:
+            self.relay.num_open_requests += 1
         try:
             # Choose the right HTTP version
             connection_class = HTTP11Connection if self.protocol_version == "HTTP/1.1" else HTTP10Connection
-            conn = connection_class(Handler.host, Handler.port)
+            conn = connection_class(self.host, self.port)
 
             # Forward the request with the same headers
             headers = dict(zip(self.headers.keys(), self.headers.values()))
 
             # Replace host in Host header
             orig_host = None
-            host = Handler.host if ":" not in Handler.host else ("[" + Handler.host + "]")
+            host = self.host if ":" not in self.host else ("[" + self.host + "]")
             host_port = host
             for header in headers:
                 if header.lower() == "host":
                     orig_host = headers[header]
                     # append port if it is non-default or if it differs from the relay port
-                    if Handler.port != 80 and (Handler.port != Handler.relay_port or ":" in orig_host):
+                    if self.port != 80 and (self.port != self.relay_port or ":" in orig_host):
                         # : is also valid in IPv6 addresses; a port is specified in an IPv6 only if the last : is after
                         # the last ]
                         if not (":" in orig_host and "]" in orig_host) or (orig_host.rfind(':') > orig_host.rfind(']')):
-                            host_port += ":" + str(Handler.port)
+                            host_port += ":" + str(self.port)
                     headers[header] = host_port
                     break
 
@@ -227,16 +221,15 @@ class Handler(BaseHTTPRequestHandler):
 
             # Forward back the response body
             num_bytes = 0
-            global total_bytes
             while True:
-                chunk = resp.read(Handler.read_buffer_size)
+                chunk = resp.read(self.read_buffer_size)
                 if not chunk:
                     self.log_response("finished")
                     break
                 self.wfile.write(chunk)
-                num_bytes += Handler.read_buffer_size
-                total_bytes += Handler.read_buffer_size
-                if num_bytes > 10 * Handler.read_buffer_size:
+                num_bytes += self.read_buffer_size
+                self.relay.total_bytes += self.read_buffer_size
+                if num_bytes > 10 * self.read_buffer_size:
                     logging.debug("Response body [%i]: Sent %i bytes." % (self._req_num, num_bytes))
         except socket.error as e:
             self.log_socket_error(e)
@@ -245,8 +238,8 @@ class Handler(BaseHTTPRequestHandler):
         #except Exception as e:
         #    self.log_error("%s", str(e))
         finally:
-            with lock:
-                num_open_requests -= 1
+            with self.relay.lock:
+                self.relay.num_open_requests -= 1
 
 
 class Thread(threading.Thread):
@@ -254,13 +247,15 @@ class Thread(threading.Thread):
     The HTTP server servicing thread.
     """
 
-    def __init__(self, server):
+    def __init__(self, server, relay):
         """
         Create and run the servicing thread.
         :param HTTPServer server: The server to work with.
+        :param HttpRelay relay: The relay.
         """
         threading.Thread.__init__(self)
         self.server = server
+        self.relay = relay
         self.daemon = True
         self.start()
 
@@ -271,104 +266,114 @@ class Thread(threading.Thread):
         try:
             self.server.serve_forever()
         except Exception as e:
-            if not shutting_down and is_server_running(self.server):
+            if not self.relay.shutting_down and is_server_running(self.server):
                 logging.error("Error in processing thread: " + str(e))
 
 
-def run(relay_addr, relay_port, remote_host, remote_port, num_threads, buffer_size):
+class HttpRelay(object):
     """
-    Run the multithreaded relay server.
-    :param str relay_addr: IP address or hostname specifying the local interface(s) to run the relay on
-                           (pass 0.0.0.0 or :: to run it on all interfaces (IPv4 or IPv6)).
-    :param int relay_port: The local port.
-    :param str remote_host: The remote host name.
-    :param int remote_port: The remote host port.
-    :param int num_threads: Number of servicing threads.
-    :param int buffer_size: Size of the buffer used for reading responses. If too large, the forwarding can be too slow.
+    Relay HTTP get requests from localhost to a remote host (act as reverse HTTP proxy).
     """
-    server_address = (relay_addr.lstrip("[").rstrip("]"), relay_port)
-    Handler.host = remote_host.lstrip("[").rstrip("]")
-    Handler.port = remote_port
-    Handler.relay_port = relay_port
-    Handler.read_buffer_size = buffer_size
 
-    global shutting_down
+    def __init__(self, relay_addr, relay_port, remote_host, remote_port, buffer_size):
+        """
+        Run the multithreaded relay server.
+        :param str relay_addr: IP address or hostname specifying the local interface(s) to run the relay on
+                               (pass 0.0.0.0 or :: to run it on all interfaces (IPv4 or IPv6)).
+        :param int relay_port: The local port.
+        :param str remote_host: The remote host name.
+        :param int remote_port: The remote host port.
+        :param int buffer_size: Size of the buffer used for reading responses. If too large, the forwarding can be too slow.
+        """
+        self.server_address = (relay_addr.lstrip("[").rstrip("]"), relay_port)
+        self.host = remote_host.lstrip("[").rstrip("]")
+        self.port = remote_port
+        self.relay_port = relay_port
+        self.read_buffer_size = buffer_size
 
-    try:
+        self.request_num = 0
+        self.total_bytes = 0
+        self.num_open_requests = 0
+        self.shutting_down = False
+        self.lock = threading.Lock()
+
         # Create a standalone socket shared by all servers
         socket_type = socket.AF_INET if ":" not in relay_addr else socket.AF_INET6
-        sock = socket.socket(socket_type, socket.SOCK_STREAM)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.bind(server_address)
-        sock.listen(5)
+        self.socket = socket.socket(socket_type, socket.SOCK_STREAM)
+        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-        # Create the servers and run their servicing threads
-        servers = []
-        threads = []
-        for i in range(num_threads):
-            httpd = HTTPServer(server_address, Handler, False)
-            httpd.socket = sock
-            httpd.server_bind = httpd.server_close = lambda self: None
-            servers.append(httpd)
-            threads.append(Thread(httpd))
-
-        # Wait for node exit
+    def run(self, num_threads=1):
+        """
+        Run the multithreaded relay server.
+        :param int num_threads: Number of servicing threads.
+        """
         try:
-            while not shutting_down:
-                time.sleep(0.1)
-        except KeyboardInterrupt:
-            pass
+            self.socket.bind(self.server_address)
+            self.socket.listen(5)
 
-        logging.info("Stopping HTTP relay.")
+            # Create the servers and run their servicing threads
+            servers = []
+            threads = []
+            for i in range(num_threads):
+                handler = partial(Handler, self)
+                httpd = HTTPServer(self.server_address, handler, False)
+                httpd.socket = self.socket
+                httpd.server_bind = httpd.server_close = lambda self: None
+                servers.append(httpd)
+                threads.append(Thread(httpd, self))
 
-        shutting_down = True
+            # Wait for node exit
+            try:
+                while not self.shutting_down:
+                    time.sleep(0.1)
+            except KeyboardInterrupt:
+                pass
 
-        # First, shut down the socket, which should convince server.shutdown() to finish.
-        sock.shutdown(socket.SHUT_RDWR)
-        sock.close()
+            logging.info("Stopping HTTP relay.")
 
-        # Shut down the servers (their service threads are daemons, so we don't need to join them)
-        for server in servers:
-            if server is not None:
-                server.shutdown()
+            self.shutting_down = True
 
-    except socket.gaierror as e:
-        logging.error(str(e))
-        shutting_down = True
-        sys.exit(2)
-    except socket.error as e:
-        logging.error(str(e))
-        shutting_down = True
-        sys.exit(1)
-    except:
-        shutting_down = True
-        raise
+            # First, shut down the socket, which should convince server.shutdown() to finish.
+            self.socket.shutdown(socket.SHUT_RDWR)
+            self.socket.close()
 
+            # Shut down the servers (their service threads are daemons, so we don't need to join them)
+            for server in servers:
+                if server is not None:
+                    server.shutdown()
 
-def shutdown():
-    global shutting_down
-    shutting_down = True
+        except socket.gaierror as e:
+            logging.error(str(e))
+            self.shutting_down = True
+            raise
+        except socket.error as e:
+            logging.error(str(e))
+            self.shutting_down = True
+            raise
+        except:
+            self.shutting_down = True
+            raise
 
+    def shutdown(self):
+        self.shutting_down = True
 
-def sigkill_after(timeout, check_streaming=False):
-    global total_bytes
-    global num_open_requests
-    global shutting_down
-    remaining = timeout
-    last_total_bytes = -1
-    while not shutting_down:
-        if not check_streaming or (num_open_requests > 0 and total_bytes == last_total_bytes):
-            remaining -= 1
-            if remaining <= 0:
-                logging.error("Stopping HTTP relay!")
-                shutting_down = True
-                time.sleep(0.01)
-                os.kill(os.getpid(), signal.SIGKILL)
-                return
-        else:
-            remaining = timeout
-        if check_streaming and remaining == timeout // 2:
-            logging.warning("Relayed HTTP stream stopped. The relay will be stopped in %i sec if the stream does not "
-                            "resume." % (timeout // 2,))
-        last_total_bytes = total_bytes
-        time.sleep(1)
+    def sigkill_after(self, timeout, check_streaming=False):
+        remaining = timeout
+        last_total_bytes = -1
+        while not self.shutting_down:
+            if not check_streaming or (self.num_open_requests > 0 and self.total_bytes == last_total_bytes):
+                remaining -= 1
+                if remaining <= 0:
+                    logging.error("Stopping HTTP relay!")
+                    self.shutting_down = True
+                    time.sleep(0.01)
+                    os.kill(os.getpid(), signal.SIGKILL)
+                    return
+            else:
+                remaining = timeout
+            if check_streaming and remaining == timeout // 2:
+                logging.warning(
+                    "Relayed HTTP stream stopped. The relay will be stopped in %i sec if the stream does not "
+                    "resume." % (timeout // 2,))
+            last_total_bytes = self.total_bytes
+            time.sleep(1)
