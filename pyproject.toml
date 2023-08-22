@@ -1,10 +1,13 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-FileCopyrightText: Czech Technical University in Prague
+
 [build-system]
 requires = ["setuptools>=39.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "http-relay"
-version = "2.0.2"
+version = "2.1.1"
 description = "Relay for HTTP messages (reverse proxy)"
 readme = "README.md"
 authors = [{ name = "Martin Pecka", email = "peckama2@fel.cvut.cz" }]
@@ -37,3 +40,6 @@ Homepage = "https://github.com/ctu-vras/http_relay"
 
 [project.scripts]
 http-relay = "http_relay.__main__:main"
+
+[project.optional-dependencies]
+test = ["pytest"]

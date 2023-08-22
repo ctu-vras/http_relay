@@ -1,8 +1,11 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-FileCopyrightText: Czech Technical University in Prague
+
 from setuptools import setup
 
 setup(
     name="http-relay",
-    version="2.0.2",
+    version="2.1.1",
     description="Relay for HTTP messages (reverse proxy)",
     author="Martin Pecka",
     author_email="peci1@seznam.cz",
@@ -13,6 +16,7 @@ setup(
     python_requires='>=2.7',
     packages=["http_relay"],
     package_dir={"": "src"},
+    extras_require={"test": ['pytest']},
     entry_points={"console_scripts": ["http-relay = http_relay.__main__:main"]},
     classifiers=[
         "License :: OSI Approved :: BSD License",

@@ -1,11 +1,14 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # SPDX-FileCopyrightText: Czech Technical University in Prague
 
+from __future__ import print_function
+
 import argparse
 import logging
+import sys
 import threading
 
-from http_relay import run, sigkill_after
+from http_relay import HttpRelay
 
 
 def get_parser():
@@ -36,9 +39,9 @@ def get_parser():
     return parser
 
 
-def main():
+def main(cli_args=None):
     parser = get_parser()
-    args = parser.parse_args()
+    args = parser.parse_args(cli_args)
 
     host = args.host.lstrip("[").rstrip("]")  # strip [] from IPv6 addresses
     port = args.port
@@ -54,14 +57,20 @@ def main():
         host if ":" not in host else ("[" + host + "]"), port,  # wrap IPv6 in []
         num_threads))
 
+    relay = HttpRelay(local_addr, local_port, host, port, buffer_size)
+
     if sigkill_timeout is not None:
         logging.info("HTTP relay has sigkill timeout set to %i seconds. After that time%s, the node will be killed." % (
             sigkill_timeout, " with a stale stream" if sigkill_on_stream_stop else ""))
-        t = threading.Thread(target=sigkill_after, args=(sigkill_timeout, sigkill_on_stream_stop))
+        t = threading.Thread(target=relay.sigkill_after, args=(sigkill_timeout, sigkill_on_stream_stop))
         t.daemon = True
         t.start()
 
-    run(local_addr, local_port, host, port, num_threads, buffer_size)
+    try:
+        relay.run(num_threads)
+    except Exception as e:
+        print(str(e), file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == '__main__':

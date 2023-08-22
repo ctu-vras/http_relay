@@ -1,3 +1,8 @@
+<!--
+SPDX-License-Identifier: BSD-3-Clause
+SPDX-FileCopyrightText: Czech Technical University in Prague
+-->
+
 # http-relay
 
 Relay HTTP requests from localhost to a remote host (act as reverse HTTP proxy).

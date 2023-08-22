@@ -1,11 +1,17 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-FileCopyrightText: Czech Technical University in Prague
+
 name: Publish to test PyPi.
 
 on:
   push:
-    branches: [ pip ]
+    branches: [pip]
 
 jobs:
+  test:
+    uses: ./.github/workflows/test.yml
   build-n-publish:
+    needs: [ test ]
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@master

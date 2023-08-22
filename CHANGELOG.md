@@ -1,4 +1,18 @@
+<!--
+SPDX-License-Identifier: BSD-3-Clause
+SPDX-FileCopyrightText: Czech Technical University in Prague
+-->
+
 # Changelog
+
+## 2.1.1
+
+- Fixed CI.
+
+## 2.1.0
+
+- Converted the free functions to class `HttpRelay`.
+- Added integration tests.
 
 ## 2.0.0
 
