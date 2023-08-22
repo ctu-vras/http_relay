@@ -76,9 +76,6 @@ class NonstandardHttpResponse(HTTPResponse):
         return version, status, reason
 
 
-HTTPConnection.response_class = NonstandardHttpResponse
-
-
 request_num = 0
 total_bytes = 0
 num_open_requests = 0
@@ -89,11 +86,13 @@ lock = threading.Lock()
 class HTTP10Connection(HTTPConnection):
     _http_vsn_str = "HTTP/1.0"
     _http_vsn = 10
+    response_class = NonstandardHttpResponse
 
 
 class HTTP11Connection(HTTPConnection):
     _http_vsn_str = "HTTP/1.1"
     _http_vsn = 11
+    response_class = NonstandardHttpResponse
 
 
 def is_server_running(server):

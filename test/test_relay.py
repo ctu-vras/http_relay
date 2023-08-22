@@ -124,6 +124,9 @@ class TestRelay(unittest.TestCase):
             time.sleep(0.01)
         time.sleep(1.0)
 
+        if not issubclass(handler, TestHandler):
+            HTTPConnection.response_class = \
+                http_relay.relay.NonstandardHttpResponse
         conn = HTTPConnection(server_host, relay_port, timeout=1.0)
         conn.request("GET", "test")
         resp = conn.getresponse()
