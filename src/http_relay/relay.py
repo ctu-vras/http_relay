@@ -46,8 +46,12 @@ class NonstandardHttpResponse(HTTPResponse):
         if not line:
             # Presumably, the server closed the connection before
             # sending a valid response.
-            raise RemoteDisconnected("Remote end closed connection without"
-                                     " response")
+            if sys.version_info.major > 2:
+                raise RemoteDisconnected("Remote end closed connection without"
+                                         " response")
+            else:
+                raise BadStatusLine("No status line received - the server "
+                                    "has closed the connection")
         self._status_line = line
         try:
             version, status, reason = line.split(None, 2)
