@@ -1,3 +1,9 @@
+http-relay (2.1.1-3) bionic; urgency=medium
+
+  * Fixed issues from review.
+
+ -- Martin Pecka <peci1@seznam.cz>  Tue, 05 Sep 2023 14:02:18 +0200
+
 http-relay (2.1.1-2) unstable; urgency=medium
 
   * Better Debian packaging
