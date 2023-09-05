@@ -17,4 +17,4 @@ override_dh_auto_install:
 	$(call _mkman, $(CMD), debian/$(CMD).1, Relay HTTP requests from local host to a remote host.)
 
 %:
-	dh $@ --with python3 --buildsystem=pybuild
+	dh $@  --buildsystem=pybuild
