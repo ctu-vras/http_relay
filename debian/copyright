@@ -3,7 +3,8 @@ Upstream-Name: http-relay
 Source: <https://github.com/ctu-vras/http_relay>
 
 Files: *
-Copyright: Czech Technical University in Prague
+Copyright: 2023 Martin Pecka <peci1@seznam.cz>,
+           2023 Czech Technical University in Prague
 License: BSD-3-Clause
  Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions are met:
