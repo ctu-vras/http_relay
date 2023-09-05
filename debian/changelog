@@ -1,6 +1,6 @@
 http-relay (2.1.1-5) unstable; urgency=medium
 
-  * No changes
+  * Switch to dh-python for older distros.
 
  -- Martin Pecka <peci1@seznam.cz>  Tue, 05 Sep 2023 19:55:24 +0200
 
