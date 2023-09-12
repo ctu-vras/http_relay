@@ -1,3 +1,9 @@
+http-relay (2.1.2-4) unstable; urgency=medium
+
+  * debian: Fixed pyproject build.
+
+ -- Martin Pecka <peci1@seznam.cz>  Tue, 12 Sep 2023 18:05:41 +0200
+
 http-relay (2.1.2-3) unstable; urgency=medium
 
   * debian: Switch to pyproject build system.
