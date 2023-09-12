@@ -5,6 +5,7 @@ Maintainer: Martin Pecka <peci1@seznam.cz>
 Build-Depends: debhelper-compat (= 13),
   dh-sequence-python3,
   help2man <!nodoc>,
+  pybuild-plugin-pyproject,
   python3-all,
   python3-setuptools (>= 39.0.0),
   python3-pytest <!nocheck>
