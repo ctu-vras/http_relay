@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "http-relay"
-version = "2.1.2"
+version = "2.1.3"
 description = "Relay for HTTP messages (reverse proxy)"
 readme = "README.md"
 authors = [{ name = "Martin Pecka", email = "peci1@seznam.cz" }]
