@@ -5,6 +5,10 @@ SPDX-FileCopyrightText: Czech Technical University in Prague
 
 # Changelog
 
+## 2.1.3
+
+- Fixed wrongly discovered test classes.
+
 ## 2.1.2
 
 - Synchronized maintainer info in setup.py and pyproject.toml .

@@ -5,7 +5,7 @@ from setuptools import setup
 
 setup(
     name="http-relay",
-    version="2.1.2",
+    version="2.1.3",
     description="Relay for HTTP messages (reverse proxy)",
     author="Martin Pecka",
     author_email="peci1@seznam.cz",
