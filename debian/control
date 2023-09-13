@@ -6,7 +6,7 @@ Build-Depends: debhelper-compat (= 10),
   dh-python,
   help2man <!nodoc>,
   python3-all,
-  python3-setuptools (>= 61.0.0),
+  python3-setuptools (>= 39.0.0),
   python3-pytest <!nocheck>
 Standards-Version: 4.6.2
 Homepage: https://github.com/ctu-vras/http_relay
