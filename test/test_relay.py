@@ -22,6 +22,8 @@ except ImportError:
 
 
 class TestHandler(BaseHTTPRequestHandler):
+    __test__ = False
+
     def do_GET(self):
         self.send_response(200)
         self.end_headers()
@@ -40,6 +42,7 @@ class NTRIPHandler(BaseHTTPRequestHandler):
 
 
 class TestServer(threading.Thread):
+    __test__ = False
 
     def __init__(self, host, port, handler=TestHandler):
         """
